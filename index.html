@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Detector de objetos — by humdrum</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000000;
+  overflow: hidden;
+  font-family: 'Courier New', 'SF Mono', monospace;
+  transition: background 0.2s;
+}
+
+/* ========== PANTALLA DE BIENVENIDA (AMARILLO FLÚOR) ========== */
+.welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #ccff00; /* amarillo flúor puro */
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.5s ease, visibility 0.5s;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  backdrop-filter: none;
+}
+
+.welcome-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.welcome-title {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: #1f2a00;
+  text-transform: uppercase;
+  text-shadow: 6px 6px 0px #9ecc00;
+  margin-bottom: 1rem;
+  font-family: 'Courier New', 'Impact', monospace;
+}
+
+.welcome-sub {
+  font-size: 0.9rem;
+  background: #1f2a00;
+  color: #ccff00;
+  padding: 0.3rem 1.2rem;
+  border-radius: 60px;
+  letter-spacing: 2px;
+  margin-bottom: 2.5rem;
+  font-weight: bold;
+}
+
+.welcome-question {
+  font-size: 1.6rem;
+  font-weight: 800;
+  background: rgba(0,0,0,0.15);
+  padding: 1rem 2rem;
+  border-radius: 80px;
+  backdrop-filter: blur(4px);
+  margin-bottom: 2rem;
+  color: #1f2a00;
+}
+
+.btn-activate {
+  background: #1f2a00;
+  border: none;
+  color: #ccff00;
+  font-size: 1.8rem;
+  font-weight: bold;
+  padding: 1rem 2.5rem;
+  border-radius: 60px;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  box-shadow: 0 10px 0 #0f1300;
+  transition: transform 0.08s linear, box-shadow 0.1s;
+  letter-spacing: 3px;
+}
+
+.btn-activate:active {
+  transform: translateY(4px);
+  box-shadow: 0 5px 0 #0f1300;
+}
+
+.welcome-footer {
+  position: absolute;
+  bottom: 30px;
+  font-size: 0.7rem;
+  color: #1f2a00;
+  opacity: 0.7;
+  font-family: monospace;
+}
+
+/* ========== PANTALLA DE DETECCIÓN (estilo original + taxonomía) ========== */
+video, canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+video {
+  z-index: 1;
+}
+
+canvas {
+  z-index: 2;
+  pointer-events: none;
+}
+
+#title {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  color: #00ffcc;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  z-index: 10;
+  background: rgba(0,0,0,0.7);
+  padding: 8px 16px;
+  backdrop-filter: blur(4px);
+  font-family: monospace;
+  border-left: 3px solid #00ffcc;
+}
+
+#status {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  color: rgba(255,255,255,0.7);
+  font-size: 10px;
+  font-family: monospace;
+  z-index: 10;
+  background: rgba(0,0,0,0.6);
+  padding: 6px 12px;
+  border-radius: 4px;
+}
+
+#fps-counter {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  color: #00ffcc;
+  font-size: 10px;
+  font-family: monospace;
+  z-index: 10;
+  background: rgba(0,0,0,0.6);
+  padding: 6px 12px;
+  border-radius: 4px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.85);
+  color: #00ffcc;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-family: monospace;
+  z-index: 15;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+.back-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid #00ffcc;
+  color: #00ffcc;
+  padding: 6px 14px;
+  border-radius: 40px;
+  font-size: 11px;
+  font-family: monospace;
+  cursor: pointer;
+  z-index: 12;
+  backdrop-filter: blur(4px);
+  font-weight: bold;
+}
+
+.back-btn:active {
+  background: #00ffcc;
+  color: black;
+}
+
+/* ocultar elementos de detección hasta que se active */
+.detection-ui {
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.hide-detection-ui {
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE BIENVENIDA (AMARILLO FLÚOR) -->
+<div id="welcomeOverlay" class="welcome-overlay">
+  <div class="welcome-title">DETECTOR DE OBJETOS</div>
+  <div class="welcome-sub">by humdrum</div>
+  <div class="welcome-question">✨ ¿QUERÉS DETECTAR OBJETOS? ✨</div>
+  <button id="activateBtn" class="btn-activate">▶ ACTIVAR CÁMARA ◀</button>
+  <div class="welcome-footer">// object detection protocols // cámara trasera // taxonomía expandida</div>
+</div>
+
+<!-- ELEMENTOS DE DETECCIÓN (inicialmente ocultos visualmente pero existen) -->
+<div id="detectionUI" style="display: none;">
+  <div id="title">DETECTOR DE OBJETOS // by humdrum</div>
+  <div id="status">[ initializing... ]</div>
+  <div id="fps-counter">fps: --</div>
+  <div id="toast" class="toast"></div>
+  <button id="backWelcomeBtn" class="back-btn">◀ SALIR</button>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
+<script>
+// ============================================
+// TAXONOMÍA SEMÁNTICA (40+ objetos legibles)
+// Basada en: tecnología, cuerpo, doméstico, espacio, calle, humano, extra
+// ============================================
+const objectTaxonomy = {
+  // 🔵 TECNOLOGÍA
+  "cell phone": { labels: ["contemporary dependency", "attention trap", "surveillance surface"], color: "#00e5ff", icon: "📱" },
+  "laptop": { labels: ["data extraction point", "digital extension", "portable interface"], color: "#00e5ff", icon: "💻" },
+  "tv": { labels: ["passive consumption interface", "attention controller"], color: "#00e5ff", icon: "📺" },
+  "remote": { labels: ["control extension", "command surface"], color: "#00e5ff", icon: "🎮" },
+  "camera": { labels: ["surveillance surface", "image capture device"], color: "#00e5ff", icon: "📷" },
+  "headphones": { labels: ["isolation device", "intimate interface"], color: "#00e5ff", icon: "🎧" },
+  "mouse": { labels: ["pointing device", "digital extension"], color: "#00e5ff", icon: "🖱️" },
+  "keyboard": { labels: ["input surface", "text generator"], color: "#00e5ff", icon: "⌨️" },
+  
+  // 🟡 CUERPO / USO
+  "chair": { labels: ["body support structure", "domestic infrastructure", "posture enforcer"], color: "#ffcc00", icon: "🪑" },
+  "couch": { labels: ["comfort zone", "habitual contact zone", "rest device"], color: "#ffcc00", icon: "🛋️" },
+  "bed": { labels: ["rest device", "body reset system", "sleep surface"], color: "#ffcc00", icon: "🛏️" },
+  "mirror": { labels: ["reflective interface", "unstable subject"], color: "#ffcc00", icon: "🪞" },
+  "clothes": { labels: ["identity layer", "surface coding"], color: "#ffcc00", icon: "👕" },
+  
+  // 🔴 DOMÉSTICO
+  "dining table": { labels: ["supporting surface", "domestic infrastructure"], color: "#ff5e5e", icon: "🍽️" },
+  "cup": { labels: ["repetitive use object", "maintenance object", "drinking interface"], color: "#ff5e5e", icon: "🥤" },
+  "wine glass": { labels: ["consumption ritual object", "fragile container"], color: "#ff5e5e", icon: "🍷" },
+  "bottle": { labels: ["consumption unit", "liquid container"], color: "#ff5e5e", icon: "🍾" },
+  "refrigerator": { labels: ["preservation system", "cold storage"], color: "#ff5e5e", icon: "🧊" },
+  "oven": { labels: ["transformation device", "heat interface"], color: "#ff5e5e", icon: "🔥" },
+  "sink": { labels: ["cleaning interface", "water point"], color: "#ff5e5e", icon: "🚰" },
+  "bowl": { labels: ["containment unit", "food receptacle"], color: "#ff5e5e", icon: "🥣" },
+  
+  // 🟢 ESPACIO / ENTORNO
+  "door": { labels: ["access control point", "threshold interface"], color: "#6aff8c", icon: "🚪" },
+  "window": { labels: ["visual interface", "external connection", "light aperture"], color: "#6aff8c", icon: "🪟" },
+  "stairs": { labels: ["vertical movement system", "transition structure"], color: "#6aff8c", icon: "📶" },
+  "lamp": { labels: ["artificial environment control", "light emitter"], color: "#6aff8c", icon: "💡" },
+  
+  // 🟣 CALLE / URBANO
+  "car": { labels: ["mobility system", "controlled movement capsule", "urban prosthesis"], color: "#d96cff", icon: "🚗" },
+  "bicycle": { labels: ["alternative mobility", "manual transport", "urban interface"], color: "#d96cff", icon: "🚲" },
+  "bus": { labels: ["collective mobility", "mass transport unit"], color: "#d96cff", icon: "🚌" },
+  "traffic light": { labels: ["behavioral conditioning device", "urban regulator"], color: "#d96cff", icon: "🚦" },
+  "backpack": { labels: ["personal storage system", "portable container"], color: "#d96cff", icon: "🎒" },
+  "handbag": { labels: ["personal storage", "carry unit"], color: "#d96cff", icon: "👜" },
+  
+  // ⚫ CUERPO HUMANO
+  "person": { labels: ["unstable subject", "non-fixed entity", "identity in transit"], color: "#ffff66", icon: "🧑" },
+  "hand": { labels: ["gesture interface", "manipulation tool"], color: "#ffff66", icon: "✋" },
+  "face": { labels: ["partial identity", "low confidence reading"], color: "#ffff66", icon: "😶" },
+  
+  // ⚪ OBJETOS GENÉRICOS / FALLBACK
+  "book": { labels: ["knowledge container", "information storage", "portable memory"], color: "#aaaaaa", icon: "📚" },
+  "scissors": { labels: ["functional extension", "cutting tool"], color: "#aaaaaa", icon: "✂️" },
+  "knife": { labels: ["functional extension", "cutting interface"], color: "#aaaaaa", icon: "🔪" },
+  "clock": { labels: ["time control device", "temporal interface"], color: "#aaaaaa", icon: "⏰" },
+  "plant": { labels: ["organic presence", "living object"], color: "#aaaaaa", icon: "🌿" },
+  "food": { labels: ["consumption unit", "nutritional interface"], color: "#aaaaaa", icon: "🍎" },
+  "trash can": { labels: ["discarded object container", "waste system"], color: "#aaaaaa", icon: "🗑️" },
+  
+  // default
+  "default": { labels: ["misclassified object", "unresolved category", "unstable presence"], color: "#ffffff", icon: "◌" }
+};
+
+// Función para obtener label aleatorio dentro de la taxonomía
+function getRandomLabel(objClass) {
+  const entry = objectTaxonomy[objClass] || objectTaxonomy.default;
+  const labels = entry.labels;
+  const randomIndex = Math.floor(Math.random() * labels.length);
+  return labels[randomIndex];
+}
+
+function getColor(objClass) {
+  return (objectTaxonomy[objClass] || objectTaxonomy.default).color;
+}
+
+function getIcon(objClass) {
+  return (objectTaxonomy[objClass] || objectTaxonomy.default).icon || "⬤";
+}
+
+// ============================================
+// ELEMENTOS DOM + FLUJO
+// ============================================
+const welcomeOverlay = document.getElementById('welcomeOverlay');
+const detectionUIDiv = document.getElementById('detectionUI');
+const activateBtn = document.getElementById('activateBtn');
+const backWelcomeBtn = document.getElementById('backWelcomeBtn');
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const statusDiv = document.getElementById('status');
+const fpsDiv = document.getElementById('fps-counter');
+const toastDiv = document.getElementById('toast');
+
+let model = null;
+let detectionInterval = null;
+let frameCount = 0;
+let lastFpsUpdate = 0;
+let currentFPS = 0;
+let detectedObjects = [];
+let stream = null;
+let isDetectionActive = false;
+let animationDrawId = null;
+
+function showMessage(msg, isError = false) {
+  toastDiv.textContent = msg;
+  toastDiv.style.color = isError ? "#ff8888" : "#00ffcc";
+  toastDiv.classList.add("show");
+  setTimeout(() => {
+    toastDiv.classList.remove("show");
+  }, 2500);
+}
+
+// ========== CÁMARA TRASERA ==========
+async function startCamera() {
+  try {
+    statusDiv.textContent = "[ requesting back camera... ]";
+    const constraints = {
+      video: { 
+        facingMode: { exact: "environment" },  // trasera obligatoria
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+    
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (fallbackErr) {
+      // si falla exact environment, intentar con facingMode environment sin exact
+      console.warn("fallback a environment sin exact", fallbackErr);
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1024 } },
+        audio: false
+      });
+    }
+    
+    video.srcObject = stream;
+    video.setAttribute("playsinline", "");
+    video.muted = true;
+    await video.play();
+    
+    await new Promise((resolve) => {
+      if (video.videoWidth) resolve();
+      else video.onloadedmetadata = () => resolve();
+    });
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    statusDiv.textContent = "[ camera ready. detecting objects... ]";
+    showMessage("cámara trasera activada ✅");
+    return true;
+  } catch(e) {
+    console.error(e);
+    statusDiv.textContent = "[ error: camera permission / no back camera ]";
+    showMessage("error: no se pudo acceder a la cámara trasera", true);
+    return false;
+  }
+}
+
+function stopCameraAndDetection() {
+  if (detectionInterval) {
+    clearInterval(detectionInterval);
+    detectionInterval = null;
+  }
+  if (animationDrawId) {
+    cancelAnimationFrame(animationDrawId);
+    animationDrawId = null;
+  }
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  video.srcObject = null;
+  isDetectionActive = false;
+  detectedObjects = [];
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ========== MODELO COCO-SSD ==========
+async function loadModel() {
+  statusDiv.textContent = "[ loading detection model... ]";
+  try {
+    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    statusDiv.textContent = "[ model loaded. ]";
+    return true;
+  } catch(e) {
+    console.error(e);
+    statusDiv.textContent = "[ error loading model ]";
+    showMessage("error al cargar modelo de IA", true);
+    return false;
+  }
+}
+
+// ========== DETECCIÓN (cada 250ms) ==========
+async function runDetection() {
+  if (!model || !video.videoWidth || !isDetectionActive) return;
+  try {
+    const predictions = await model.detect(video);
+    const newObjects = [];
+    for (let pred of predictions) {
+      if (pred.score > 0.55) { // confianza mínima para mostrar variedad
+        const className = pred.class.toLowerCase();
+        newObjects.push({
+          bbox: pred.bbox,
+          class: className,
+          score: pred.score,
+          label: getRandomLabel(className),
+          color: getColor(className),
+          icon: getIcon(className)
+        });
+      }
+    }
+    detectedObjects = newObjects;
+    
+    // actualizar fps
+    frameCount++;
+    const now = performance.now();
+    if (now - lastFpsUpdate >= 1000) {
+      currentFPS = frameCount;
+      fpsDiv.textContent = `fps: ${currentFPS}`;
+      frameCount = 0;
+      lastFpsUpdate = now;
+    }
+  } catch(e) {
+    console.warn("detection error", e);
+  }
+}
+
+// ========== DIBUJO ESTILO YOLO + CORNER + TAXONOMÍA ==========
+function drawLoop() {
+  if (!canvas.width || !canvas.height) {
+    animationDrawId = requestAnimationFrame(drawLoop);
+    return;
+  }
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  for (let obj of detectedObjects) {
+    const [x, y, w, h] = obj.bbox;
+    const color = obj.color;
+    const labelText = `${obj.icon} ${obj.label} ${Math.round(obj.score * 100)}%`;
+    
+    // bounding box principal
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x, y, w, h);
+    
+    // esquinas (estética computacional)
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    const cornerLen = 12;
+    ctx.moveTo(x, y + cornerLen); ctx.lineTo(x, y); ctx.lineTo(x + cornerLen, y);
+    ctx.moveTo(x + w - cornerLen, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + cornerLen);
+    ctx.moveTo(x + w, y + h - cornerLen); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - cornerLen, y + h);
+    ctx.moveTo(x, y + h - cornerLen); ctx.lineTo(x, y + h); ctx.lineTo(x + cornerLen, y + h);
+    ctx.stroke();
+    
+    // fondo etiqueta
+    ctx.font = "bold 13px 'Courier New', monospace";
+    const textWidth = ctx.measureText(labelText).width;
+    const padding = 10;
+    let labelY = y - 8;
+    let rectY = y - 28;
+    if (rectY < 0) {
+      rectY = y + h + 4;
+      labelY = rectY + 18;
+    }
+    ctx.fillStyle = color;
+    ctx.fillRect(x, rectY, textWidth + padding, 24);
+    ctx.fillStyle = "#000000";
+    ctx.fillText(labelText, x + 5, labelY + 2);
+  }
+  
+  animationDrawId = requestAnimationFrame(drawLoop);
+}
+
+// ========== FLUJO PRINCIPAL (activar desde bienvenida) ==========
+async function activateFullDetection() {
+  // ocultar welcome y mostrar UI de detección
+  welcomeOverlay.classList.add('hidden');
+  detectionUIDiv.style.display = 'block';
+  
+  // reset estados
+  stopCameraAndDetection();
+  detectedObjects = [];
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // cargar modelo si no existe
+  if (!model) {
+    const modelLoaded = await loadModel();
+    if (!modelLoaded) {
+      statusDiv.textContent = "[ model failed ]";
+      showMessage("error crítico: no se pudo cargar el modelo", true);
+      return;
+    }
+  }
+  
+  const camStarted = await startCamera();
+  if (!camStarted) {
+    statusDiv.textContent = "[ camera unavailable ]";
+    showMessage("no se pudo acceder a la cámara trasera", true);
+    return;
+  }
+  
+  isDetectionActive = true;
+  
+  // bucle de detección periódica
+  if (detectionInterval) clearInterval(detectionInterval);
+  detectionInterval = setInterval(() => {
+    if (isDetectionActive) runDetection();
+  }, 250);
+  
+  // iniciar draw loop si no está corriendo
+  if (animationDrawId) cancelAnimationFrame(animationDrawId);
+  drawLoop();
+  
+  statusDiv.textContent = "[ detecting... use back camera ]";
+  showMessage("detección activa — apuntá a objetos");
+}
+
+// ========== VOLVER A PANTALLA AMARILLA ==========
+function backToWelcome() {
+  // detener todo
+  isDetectionActive = false;
+  if (detectionInterval) {
+    clearInterval(detectionInterval);
+    detectionInterval = null;
+  }
+  if (animationDrawId) {
+    cancelAnimationFrame(animationDrawId);
+    animationDrawId = null;
+  }
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  video.srcObject = null;
+  detectedObjects = [];
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // ocultar UI detección, mostrar bienvenida
+  detectionUIDiv.style.display = 'none';
+  welcomeOverlay.classList.remove('hidden');
+  statusDiv.textContent = "[ inactive ]";
+}
+
+// ========== EVENTOS ==========
+activateBtn.addEventListener('click', () => {
+  activateFullDetection();
+});
+
+backWelcomeBtn.addEventListener('click', () => {
+  backToWelcome();
+});
+
+// Manejo de resize para mantener canvas
+window.addEventListener('resize', () => {
+  if (video && video.videoWidth && video.videoHeight && detectionUIDiv.style.display === 'block') {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+});
+
+// Precarga pasiva del modelo para que al activar sea rápido
+(async function preloadModelQuiet() {
+  try {
+    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    console.log("modelo pre-cargado");
+  } catch(e) { console.warn(e); }
+})();
+
+// Aseguramos que al salir de la pestaña no haya conflictos, pero funciona ok
+</script>
+</body>
+</html>
