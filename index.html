@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Expanded Taxonomy — by humdrum</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #000;
+    font-family: 'Courier New', 'SF Mono', 'Fira Code', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ----- WELCOME SCREEN (AZUL ELÉCTRICO) ----- */
+  .welcome-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #1e22ff;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.4s ease, visibility 0.4s;
+    padding: 2rem;
+  }
+
+  .welcome-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .welcome-content {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .main-title {
+    font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.8rem, 7vw, 3rem);
+    letter-spacing: -0.01em;
+    color: white;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+    line-height: 1.2;
+  }
+
+  .sub-title {
+    font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+    font-weight: 500;
+    font-size: clamp(0.8rem, 3.5vw, 1rem);
+    letter-spacing: 0.2em;
+    color: white;
+    text-transform: uppercase;
+    margin-bottom: 2.5rem;
+    opacity: 0.9;
+  }
+
+  .statement {
+    font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+    font-weight: 400;
+    font-size: clamp(1rem, 4vw, 1.3rem);
+    line-height: 1.5;
+    color: white;
+    text-align: center;
+    max-width: 550px;
+    margin: 0 auto 2.5rem auto;
+    padding: 0 1rem;
+  }
+
+  .statement p {
+    margin: 0;
+  }
+
+  .activate-btn {
+    background: transparent;
+    border: 2px solid white;
+    color: white;
+    font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+    font-size: clamp(1rem, 4vw, 1.1rem);
+    font-weight: 500;
+    text-transform: lowercase;
+    padding: 0.9rem 2.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 0px;
+  }
+
+  .activate-btn:hover {
+    background-color: white;
+    color: #1e22ff;
+    border-color: white;
+  }
+
+  .activate-btn:active {
+    transform: scale(0.97);
+  }
+
+  html, body {
+    overflow: hidden;
+    height: 100%;
+  }
+
+  /* ----- DETECTION INTERFACE - YOLO STYLE + FLUO COLORS ----- */
+  .detection-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    background: #000;
+  }
+
+  video, canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  video {
+    z-index: 1;
+  }
+
+  canvas {
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .detection-title {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    color: #ccff00;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    z-index: 10;
+    font-family: 'Courier New', monospace;
+    background: transparent;
+    padding: 0;
+    text-shadow: 0 0 4px rgba(0,0,0,0.5);
+  }
+
+  .exit-btn {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    background: transparent;
+    border: 1px solid rgba(204, 255, 0, 0.7);
+    color: #ccff00;
+    padding: 5px 12px;
+    font-size: 10px;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    z-index: 12;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(2px);
+  }
+
+  .exit-btn:active {
+    background: #ccff20;
+    color: #000;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: #ccff00;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    z-index: 15;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+    border: 1px solid #ccff00;
+  }
+  .toast.show { opacity: 1; }
+  
+  .hide { display: none; }
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE INICIO (azul eléctrico) -->
+<div id="welcomeScreen" class="welcome-screen">
+  <div class="welcome-content">
+    <div class="main-title">EXPANDED TAXONOMY</div>
+    <div class="sub-title">BY HUMDRUM</div>
+    <div class="statement">
+      <p>A system where classification expands beyond control,</p>
+      <p>generating unstable meanings.</p>
+    </div>
+    <button id="activateCameraBtn" class="activate-btn">activate camera</button>
+  </div>
+</div>
+
+<!-- INTERFAZ DE DETECCIÓN -->
+<div id="detectionContainer" class="detection-container" style="display: none;">
+  <div class="detection-title">EXPANDED TAXONOMY // by humdrum</div>
+  <button id="exitToWelcomeBtn" class="exit-btn">EXIT</button>
+  <div id="toastMsg" class="toast"></div>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
+<script>
+// ============================================================
+// EXPANDED TAXONOMY - FLUO / NEON COLORS (YOLO aesthetic)
+// Colores más vibrantes: verde flúor, rosa, amarillo, cian, naranja
+// ============================================================
+
+// Paleta de colores flúor / neón para las detecciones
+const FLUO_COLORS = [
+  "#00ff88",  // verde flúor
+  "#ff00ff",  // rosa flúor / magenta
+  "#00ffff",  // cian flúor
+  "#ffaa00",  // amarillo/naranja flúor
+  "#ff0066",  // rosa intenso
+  "#88ff00",  // lima flúor
+  "#00ffcc",  // turquesa flúor
+  "#ff4400",  // naranja flúor
+  "#ccff00",  // amarillo lima
+  "#ff00aa"   // fucsia
+];
+
+// Asignar color flúor aleatorio a cada clase (pero consistente dentro de la sesión)
+const colorMap = new Map();
+
+function getFluoColor(className) {
+  if (colorMap.has(className)) {
+    return colorMap.get(className);
+  }
+  const randomColor = FLUO_COLORS[Math.floor(Math.random() * FLUO_COLORS.length)];
+  colorMap.set(className, randomColor);
+  return randomColor;
+}
+
+// Taxonomía expandida con labels poéticos
+const taxonomy = {
+  "cell phone": ["contemporary dependency", "attention trap", "surveillance surface"],
+  "laptop": ["data extraction point", "digital extension", "portable interface"],
+  "tv": ["passive consumption interface", "attention controller", "visual sedation"],
+  "remote": ["control extension", "command surface", "volition proxy"],
+  "camera": ["surveillance surface", "image capture device", "reality encoder"],
+  "headphones": ["isolation device", "intimate interface", "audio capsule"],
+  "mouse": ["pointing device", "digital extension", "cursor origin"],
+  "keyboard": ["input surface", "text generator", "linguistic interface"],
+  "chair": ["body support structure", "domestic infrastructure", "posture enforcer"],
+  "couch": ["comfort zone", "habitual contact zone", "rest device"],
+  "bed": ["rest device", "body reset system", "sleep surface"],
+  "mirror": ["reflective interface", "unstable subject", "identity split"],
+  "dining table": ["supporting surface", "domestic infrastructure", "gathering interface"],
+  "cup": ["repetitive use object", "maintenance object", "drinking interface"],
+  "wine glass": ["consumption ritual object", "fragile container", "celebration vessel"],
+  "bottle": ["consumption unit", "liquid container", "portable hydration"],
+  "refrigerator": ["preservation system", "cold storage", "thermal archive"],
+  "oven": ["transformation device", "heat interface", "alchemical chamber"],
+  "door": ["access control point", "threshold interface", "liminal boundary"],
+  "window": ["visual interface", "external connection", "light aperture"],
+  "stairs": ["vertical movement system", "transition structure", "elevation device"],
+  "lamp": ["artificial environment control", "light emitter", "darkness negotiator"],
+  "car": ["mobility system", "controlled movement capsule", "urban prosthesis"],
+  "bicycle": ["alternative mobility", "manual transport", "urban interface"],
+  "bus": ["collective mobility", "mass transport unit", "public vein"],
+  "traffic light": ["behavioral conditioning device", "urban regulator", "chromatic command"],
+  "backpack": ["personal storage system", "portable container", "burden distributor"],
+  "person": ["unstable subject", "non-fixed entity", "identity in transit"],
+  "hand": ["gesture interface", "manipulation tool", "precise actuator"],
+  "book": ["knowledge container", "information storage", "portable memory"],
+  "scissors": ["functional extension", "cutting tool", "separation device"],
+  "knife": ["functional extension", "cutting interface", "edge negotiator"],
+  "clock": ["time control device", "temporal interface", "rhythm enforcer"],
+  "plant": ["organic presence", "living object", "photosynthetic surface"],
+  "food": ["consumption unit", "nutritional interface", "caloric source"],
+  "default": ["misclassified object", "unresolved category", "unstable presence", "taxonomy leak"]
+};
+
+function getExpandedLabel(className) {
+  const labels = taxonomy[className] || taxonomy.default;
+  return labels[Math.floor(Math.random() * labels.length)];
+}
+
+// ========== DOM ==========
+const welcomeScreen = document.getElementById('welcomeScreen');
+const detectionContainer = document.getElementById('detectionContainer');
+const activateBtn = document.getElementById('activateCameraBtn');
+const exitBtn = document.getElementById('exitToWelcomeBtn');
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const toastDiv = document.getElementById('toastMsg');
+
+let model = null;
+let detectionInterval = null;
+let animationFrame = null;
+let stream = null;
+let isDetecting = false;
+let detectedObjects = [];
+
+function showToast(msg, isErr = false) {
+  toastDiv.textContent = msg;
+  toastDiv.style.color = isErr ? "#ffaaaa" : "#ccff00";
+  toastDiv.classList.add('show');
+  setTimeout(() => toastDiv.classList.remove('show'), 2000);
+}
+
+// ========== CÁMARA TRASERA ==========
+async function startBackCamera() {
+  try {
+    let constraints = {
+      video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    };
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (fallback) {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1024 } }
+      });
+    }
+    video.srcObject = stream;
+    video.setAttribute('playsinline', '');
+    video.muted = true;
+    await video.play();
+    await new Promise(resolve => {
+      if (video.videoWidth) resolve();
+      else video.onloadedmetadata = () => resolve();
+    });
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    showToast("camera ready");
+    return true;
+  } catch (err) {
+    console.error(err);
+    showToast("camera access failed", true);
+    return false;
+  }
+}
+
+function stopTracks() {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  video.srcObject = null;
+}
+
+// ========== MODELO ==========
+async function loadModel() {
+  try {
+    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    return true;
+  } catch(e) {
+    console.error(e);
+    showToast("failed to load AI model", true);
+    return false;
+  }
+}
+
+// ========== DETECCIÓN ==========
+async function runDetection() {
+  if (!model || !video.videoWidth || !isDetecting) return;
+  try {
+    const predictions = await model.detect(video);
+    const newObjs = [];
+    for (let p of predictions) {
+      if (p.score > 0.55) {
+        const cls = p.class.toLowerCase();
+        newObjs.push({
+          bbox: p.bbox,
+          class: cls,
+          score: p.score,
+          label: getExpandedLabel(cls),
+          color: getFluoColor(cls)
+        });
+      }
+    }
+    detectedObjects = newObjs;
+  } catch(e) { console.warn(e); }
+}
+
+// ========== DIBUJO ESTILO YOLO con COLORES FLÚOR ==========
+function draw() {
+  if (!canvas.width || !canvas.height) {
+    animationFrame = requestAnimationFrame(draw);
+    return;
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  for (let obj of detectedObjects) {
+    const [x, y, w, h] = obj.bbox;
+    const color = obj.color;
+    const conf = Math.floor(obj.score * 100);
+    const labelText = `${obj.label} ${conf}%`;
+    
+    // Bounding box flúor (2.5px)
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x, y, w, h);
+    
+    // Esquinas YOLO
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    const corner = 8;
+    ctx.moveTo(x, y + corner); ctx.lineTo(x, y); ctx.lineTo(x + corner, y);
+    ctx.moveTo(x + w - corner, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + corner);
+    ctx.moveTo(x + w, y + h - corner); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - corner, y + h);
+    ctx.moveTo(x, y + h - corner); ctx.lineTo(x, y + h); ctx.lineTo(x + corner, y + h);
+    ctx.stroke();
+    
+    // Tamaño de letra compacto pero legible
+    let fontSize = 13;
+    if (w > 250) fontSize = 15;
+    ctx.font = `600 ${fontSize}px 'Courier New', monospace`;
+    const textWidth = ctx.measureText(labelText).width;
+    const padding = 6;
+    
+    // Posición: PEGADA ARRIBA del bounding box
+    let labelY = y - 6;
+    let rectY = y - 20;
+    if (rectY < 0) {
+      rectY = y + h + 4;
+      labelY = rectY + 16;
+    }
+    
+    // Fondo semitransparente del mismo color flúor
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(x, rectY, textWidth + padding, 18);
+    ctx.globalAlpha = 1;
+    
+    // Texto en BLANCO para máximo contraste
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `600 ${fontSize}px 'Courier New', monospace`;
+    ctx.fillText(labelText, x + 3, labelY + 3);
+  }
+  animationFrame = requestAnimationFrame(draw);
+}
+
+function shutdownDetection() {
+  isDetecting = false;
+  if (detectionInterval) clearInterval(detectionInterval);
+  if (animationFrame) cancelAnimationFrame(animationFrame);
+  stopTracks();
+  detectedObjects = [];
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ========== ACTIVAR SISTEMA ==========
+async function activateFullSystem() {
+  welcomeScreen.classList.add('hidden');
+  detectionContainer.style.display = 'block';
+  
+  shutdownDetection();
+  
+  if (!model) {
+    const ok = await loadModel();
+    if (!ok) return;
+  }
+  const camOk = await startBackCamera();
+  if (!camOk) return;
+  
+  isDetecting = true;
+  detectionInterval = setInterval(() => {
+    if (isDetecting) runDetection();
+  }, 200);
+  draw();
+  showToast("detection active");
+}
+
+function returnToWelcome() {
+  shutdownDetection();
+  detectionContainer.style.display = 'none';
+  welcomeScreen.classList.remove('hidden');
+  detectedObjects = [];
+  if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ========== EVENTOS ==========
+activateBtn.addEventListener('click', activateFullSystem);
+exitBtn.addEventListener('click', returnToWelcome);
+
+// Precarga silenciosa del modelo
+(async () => {
+  try {
+    model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    console.log("model ready");
+  } catch(e) { console.warn(e); }
+})();
+
+window.addEventListener('resize', () => {
+  if (video && video.videoWidth && detectionContainer.style.display === 'block') {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+});
+</script>
+</body>
+</html>
